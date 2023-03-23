@@ -1,11 +1,12 @@
+
+
 """
-Solution to the one-way tunnel
-Comenzamos con una solución sencilla que cumple los problemas de seguridad. Más adelante intentaré 
-buscar una que resuelva problemas de inanición o deadlock.
+En esta versión tratamos de resolver los problemas de inanición resgulando el paso de peatones y coches
+(indistintamente de su dirección), de modo que si muchos coches han ido pasando seguidos se les dará paso a 
+los peatones y viceversa.
 """
 
 
-#PREGUNTAR BIEN LO DEL TIEMPO!!!
 
 import time
 import random
@@ -33,8 +34,15 @@ class Monitor():
         self.nocoches = Condition(self.mutex)
         self.nocoches_norte = Condition(self.mutex)
         self.nocoches_sur = Condition(self.mutex) #no sé si será así todos con el mutex
-        self.num_coches_esperando = Value('i',0)
-    
+        self.max_coches = Value('i', 0) #contabiliza los coches seguidos que entran al puente.
+        self.max_peatones = Value('i', 0)
+        self.muchos_coches = Condition(self.mutex)
+        self.muchos_peatones = Condition(self.mutex)
+        self.coches_waiting = Value('i', 0)
+        self.peat_waiting = Value('i', 0)
+        self.peat_en_total = Value('i', 0)
+        self.coches_en_total = Value('i', 0)
+
     def no_pedestrians(self):
         return self.num_ped.value == 0
     
@@ -44,12 +52,15 @@ class Monitor():
     def no_car_north(self):
         return self.num_car_north.value == 0
     
+    def demasiados_coches(self):
+        return self.max_coches.value < 15 #por ejemplo metemos ese número.
+    
     def wants_enter_car(self, direction: int) -> None:
         self.mutex.acquire()
-        self.patata.value += 1
-        #### código
-        self.num_coches_esperando.value += 1
-        print("coches esperando: ", self.num_coches_esperando.value)
+        self.coches_waiting.value += 1 #para comprobar los que está esperando, por sino hay ninguno que no se tenga en cuenta para darles paso.
+        if self.peat_waiting.value != 0: #si no hay peatones esperando o ya han pasado todos, no nos interesa esta condición.
+            print("coches seguidos: ", self.max_coches.value)
+            self.muchos_coches.wait_for(self.demasiados_coches) #para dar paso a los peatones que haya esperando
         self.nopeatones.wait_for(self.no_pedestrians)
         if direction == NORTH:
             self.nocoches_sur.wait_for(self.no_car_south)
@@ -57,14 +68,15 @@ class Monitor():
         else:
             self.nocoches_norte.wait_for(self.no_car_north)
             self.num_car_south.value += 1
-        self.num_coches_esperando.value -= 1
-        print("coches esperando 2: ", self.num_coches_esperando.value)
+        self.max_coches.value += 1
+        self.max_peatones.value = 0 #como pasa un coche al puente, podemos poner el número de peatones seguidos a 0.
+        self.muchos_peatones.notify_all()
+        self.coches_waiting.value -= 1
+        self.coches_en_total.value += 1
         self.mutex.release()
 
     def leaves_car(self, direction: int) -> None:
         self.mutex.acquire() 
-        self.patata.value += 1
-        #### código
         if direction == NORTH:
             self.num_car_north.value -= 1
             self.nocoches_norte.notify_all()#no se bien cmo funciona exactamente, preguntar.
@@ -77,35 +89,40 @@ class Monitor():
     def no_cars(self):
         return self.num_car_north.value == 0 and self.num_car_south.value == 0
     
+    def demasiados_peatones(self):
+        return self.max_peatones.value < 5 #ponemos menos que los coches porque tardan más en pasar, pero es un valor variable,
+    
     def wants_enter_pedestrian(self) -> None:
         self.mutex.acquire()
-        self.patata.value += 1
-        #### código
+        self.peat_waiting.value += 1
+        if self.coches_waiting.value != 0: #si no hay coches esperando o ya han pasado todos, no nos interesa esta condición.
+            self.muchos_peatones.wait_for(self.demasiados_peatones)
         self.nocoches.wait_for(self.no_cars)
         self.num_ped.value += 1
+        self.max_peatones.value += 1
+        self.max_coches.value = 0
+        self.muchos_coches.notify_all()
+        self.peat_waiting.value -= 1
+        self.peat_en_total.value += 1
         self.mutex.release()
 
     def leaves_pedestrian(self) -> None:
         self.mutex.acquire()
-        self.patata.value += 1
-        #### código
         self.num_ped.value -= 1
-        print("ya se ha ido el peaton")
         self.nopeatones.notify_all()
         self.mutex.release()
 
     def __repr__(self) -> str:
-        return f'Monitor: {self.patata.value}'
+        return f'Peatones: {self.peat_en_total.value}, Coches: {self.coches_en_total.value}, Peatones esperando: {self.peat_waiting.value}, Coches esperando: {self.coches_waiting.value}'
 
 def delay_car_north() -> None:
-    time.sleep(max(random.normalvariate(1, 0.5), 0))
+    time.sleep(max(random.normalvariate(1, 0.5),0))
 
 def delay_car_south() -> None:
-    time.sleep(max(random.normalvariate(1, 0.5), 0))
+    time.sleep(max(random.normalvariate(1, 0.5),0))
 
 def delay_pedestrian() -> None:
-    time.sleep(max(random.normalvariate(30, 10), 0)) 
-    
+    time.sleep(max(random.normalvariate(30, 10),0))  #por si sale algún número negativo.
     
 def car(cid: int, direction: int, monitor: Monitor)  -> None:
     print(f"car {cid} heading {direction} wants to enter. {monitor}")
@@ -170,5 +187,3 @@ def main():
 if __name__ == '__main__':
     main()
 
-#no veo el fallo para ver por que no termina el programa con los delays activados.
-#creo que tiene que ver con que el num del monitor a veces se queda "estancado" porque ocurren varias cosas a la vez (ej. entra un peaton justo en el momento en que otro sale y asi). Pero eso esta permitido no?
