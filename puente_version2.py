@@ -15,10 +15,10 @@ NORTH = 0
 
 NCARS = 100
 NPED = 10
-TIME_CARS = 0.5  # a new car enters each 0.5s
-TIME_PED = 5 # a new pedestrian enters each 5s
-TIME_IN_BRIDGE_CARS = (1, 0.5) # normal 1s, 0.5s
-TIME_IN_BRIDGE_PEDESTRIAN = (30, 10) # normal 1s, 0.5s
+TIME_CARS = 0.5  
+TIME_PED = 5 
+TIME_IN_BRIDGE_CARS = (1, 0.5) 
+TIME_IN_BRIDGE_PEDESTRIAN = (30, 10) 
 
 class Monitor():
     def __init__(self):
@@ -31,7 +31,7 @@ class Monitor():
         self.nocoches = Condition(self.mutex)
         self.nocoches_norte = Condition(self.mutex)
         self.nocoches_sur = Condition(self.mutex) 
-        self.max_coches = Value('i', 0) #contabiliza los coches seguidos que entran al puente.
+        self.max_coches = Value('i', 0) 
         self.max_peatones = Value('i', 0)
         self.muchos_coches = Condition(self.mutex)
         self.muchos_peatones = Condition(self.mutex)
@@ -64,23 +64,26 @@ class Monitor():
     def demasiados_cochesS(self):
         return self.max_coches_sur.value < 7
     
+    #se implementará lo mismo que se ha hecho en la versión anterior (e incluido en esta) entre coches 
+    #y peatones, para los coches en direcciones contrarias, se escribe exactamente lo mismo.
     def wants_enter_car(self, direction: int) -> None:
         self.mutex.acquire()
-        self.coches_waiting.value += 1 #para comprobar los que está esperando, por sino hay ninguno que no se tenga en cuenta para darles paso.
-        if self.peat_waiting.value != 0: #si no hay peatones esperando o ya han pasado todos, no nos interesa esta condición.
-            self.muchos_coches.wait_for(self.demasiados_coches) #para dar paso a los peatones que haya esperando
+        self.coches_waiting.value += 1 
+        if self.peat_waiting.value != 0: 
+            self.muchos_coches.wait_for(self.demasiados_coches) 
         self.nopeatones.wait_for(self.no_pedestrians)
         if direction == NORTH:
             self.cochesN_waiting.value += 1
-            if self.cochesS_waiting.value != 0:
-                self.muchos_cochesN.wait_for(self.demasiados_cochesN)
+            if self.cochesS_waiting.value != 0: #si no hay coches en dirección contraria, no merece la pena darles paso.
+                self.muchos_cochesN.wait_for(self.demasiados_cochesN) 
             self.nocoches_sur.wait_for(self.no_car_south)
             self.num_car_north.value += 1
             self.max_coches_norte.value += 1
             self.cochesN_waiting.value -= 1
             self.max_coches_sur.value = 0
-            self.muchos_cochesS.notify_all()
+            self.muchos_cochesS.notify_all()#tenemos que avisar a los coches en dirección contraria de que pueden empezar a pasar.
         else:
+            #haremos lo mismo que en el caso del norte pero justo al contrario:
             self.cochesS_waiting.value += 1
             if self.cochesN_waiting.value != 0:
                 self.muchos_cochesS.wait_for(self.demasiados_cochesS)
@@ -101,7 +104,7 @@ class Monitor():
         self.mutex.acquire() 
         if direction == NORTH:
             self.num_car_north.value -= 1
-            self.nocoches_norte.notify_all()#no se bien cmo funciona exactamente, preguntar.
+            self.nocoches_norte.notify_all()
         else:
             self.num_car_south.value -= 1
             self.nocoches_sur.notify_all()
@@ -112,12 +115,13 @@ class Monitor():
         return self.num_car_north.value == 0 and self.num_car_south.value == 0
     
     def demasiados_peatones(self):
-        return self.max_peatones.value < 5 #ponemos menos que los coches porque tardan más en pasar, pero es un valor variable,
+        return self.max_peatones.value < 5 
     
+    #esta no cambia con respecto a la versión anterior:
     def wants_enter_pedestrian(self) -> None:
         self.mutex.acquire()
         self.peat_waiting.value += 1
-        if self.coches_waiting.value != 0: #si no hay coches esperando o ya han pasado todos, no nos interesa esta condición.
+        if self.coches_waiting.value != 0: 
             self.muchos_peatones.wait_for(self.demasiados_peatones)
         self.nocoches.wait_for(self.no_cars)
         self.num_ped.value += 1
