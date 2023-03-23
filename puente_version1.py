@@ -18,10 +18,10 @@ NORTH = 0
 
 NCARS = 100
 NPED = 10
-TIME_CARS = 0.5  # a new car enters each 0.5s
-TIME_PED = 5 # a new pedestrian enters each 5s
-TIME_IN_BRIDGE_CARS = (1, 0.5) # normal 1s, 0.5s
-TIME_IN_BRIDGE_PEDESTRIAN = (30, 10) # normal 1s, 0.5s
+TIME_CARS = 0.5  
+TIME_PED = 5 
+TIME_IN_BRIDGE_CARS = (1, 0.5) 
+TIME_IN_BRIDGE_PEDESTRIAN = (30, 10) 
 
 class Monitor():
     def __init__(self):
@@ -33,9 +33,9 @@ class Monitor():
         self.nopeatones = Condition(self.mutex)
         self.nocoches = Condition(self.mutex)
         self.nocoches_norte = Condition(self.mutex)
-        self.nocoches_sur = Condition(self.mutex) #no sé si será así todos con el mutex
+        self.nocoches_sur = Condition(self.mutex) #
         self.max_coches = Value('i', 0) #contabiliza los coches seguidos que entran al puente.
-        self.max_peatones = Value('i', 0)
+        self.max_peatones = Value('i', 0)#lo mismo con los peatones
         self.muchos_coches = Condition(self.mutex)
         self.muchos_peatones = Condition(self.mutex)
         self.coches_waiting = Value('i', 0)
@@ -53,13 +53,12 @@ class Monitor():
         return self.num_car_north.value == 0
     
     def demasiados_coches(self):
-        return self.max_coches.value < 15 #por ejemplo metemos ese número.
+        return self.max_coches.value < 15 #por ejemplo metemos ese número. Si han pasado más de 15 coches seguidos, damos paso a los peatones.
     
     def wants_enter_car(self, direction: int) -> None:
         self.mutex.acquire()
-        self.coches_waiting.value += 1 #para comprobar los que está esperando, por sino hay ninguno que no se tenga en cuenta para darles paso.
-        if self.peat_waiting.value != 0: #si no hay peatones esperando o ya han pasado todos, no nos interesa esta condición.
-            print("coches seguidos: ", self.max_coches.value)
+        self.coches_waiting.value += 1 #para comprobar los que están esperando, por si no hay ninguno que no se tenga en cuenta para darles paso.
+        if self.peat_waiting.value != 0: #si no hay peatones esperando, no nos interesa esta condición.
             self.muchos_coches.wait_for(self.demasiados_coches) #para dar paso a los peatones que haya esperando
         self.nopeatones.wait_for(self.no_pedestrians)
         if direction == NORTH:
@@ -70,8 +69,8 @@ class Monitor():
             self.num_car_south.value += 1
         self.max_coches.value += 1
         self.max_peatones.value = 0 #como pasa un coche al puente, podemos poner el número de peatones seguidos a 0.
-        self.muchos_peatones.notify_all()
-        self.coches_waiting.value -= 1
+        self.muchos_peatones.notify_all() #como ya se ha dejado pasar a un coche, avisamos a los peatones de que ya pueden volver a empezar a pasar. 
+        self.coches_waiting.value -= 1 #el coche que ha entrado ya deja de contar como coche esperando.
         self.coches_en_total.value += 1
         self.mutex.release()
 
@@ -79,7 +78,7 @@ class Monitor():
         self.mutex.acquire() 
         if direction == NORTH:
             self.num_car_north.value -= 1
-            self.nocoches_norte.notify_all()#no se bien cmo funciona exactamente, preguntar.
+            self.nocoches_norte.notify_all()
         else:
             self.num_car_south.value -= 1
             self.nocoches_sur.notify_all()
@@ -95,13 +94,13 @@ class Monitor():
     def wants_enter_pedestrian(self) -> None:
         self.mutex.acquire()
         self.peat_waiting.value += 1
-        if self.coches_waiting.value != 0: #si no hay coches esperando o ya han pasado todos, no nos interesa esta condición.
+        if self.coches_waiting.value != 0: #si no hay coches esperando, no nos interesa esta condición.
             self.muchos_peatones.wait_for(self.demasiados_peatones)
         self.nocoches.wait_for(self.no_cars)
         self.num_ped.value += 1
         self.max_peatones.value += 1
         self.max_coches.value = 0
-        self.muchos_coches.notify_all()
+        self.muchos_coches.notify_all() #avisamos a los coches de que ya podrían empear a pasar
         self.peat_waiting.value -= 1
         self.peat_en_total.value += 1
         self.mutex.release()
