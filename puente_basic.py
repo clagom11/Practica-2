@@ -1,11 +1,8 @@
 """
-Solution to the one-way tunnel
 Comenzamos con una solución sencilla que cumple los problemas de seguridad. Más adelante intentaré 
 buscar una que resuelva problemas de inanición o deadlock.
 """
 
-
-#PREGUNTAR BIEN LO DEL TIEMPO!!!
 
 import time
 import random
@@ -17,23 +14,27 @@ NORTH = 0
 
 NCARS = 100
 NPED = 10
-TIME_CARS = 0.5  # a new car enters each 0.5s
-TIME_PED = 5 # a new pedestrian enters each 5s
-TIME_IN_BRIDGE_CARS = (1, 0.5) # normal 1s, 0.5s
-TIME_IN_BRIDGE_PEDESTRIAN = (30, 10) # normal 1s, 0.5s
+TIME_CARS = 0.5  # un nuevo coche aparece cada 0.5s
+TIME_PED = 5 # un nuevo peaton aparece cada 5s.
+TIME_IN_BRIDGE_CARS = (1, 0.5) 
+TIME_IN_BRIDGE_PEDESTRIAN = (30, 10) 
 
 class Monitor():
     def __init__(self):
         self.mutex = Lock()
-        self.patata = Value('i', 0)
+        #número de peatones y coches (en cada dirección) que hay en el puente cada vez:
         self.num_ped = Value('i', 0)
         self.num_car_north = Value('i', 0)
         self.num_car_south = Value('i', 0)
+        #lo que nos garantizará que el puente va a ser seguro:
         self.nopeatones = Condition(self.mutex)
         self.nocoches = Condition(self.mutex)
         self.nocoches_norte = Condition(self.mutex)
-        self.nocoches_sur = Condition(self.mutex) #no sé si será así todos con el mutex
-        self.num_coches_esperando = Value('i',0)
+        self.nocoches_sur = Condition(self.mutex)
+        #para poder llevar un conteo de cuántos coches y cuantos peatones ya han pasado el puente:
+        self.coches_en_total = Value('i', 0)
+        self.peat_en_total = Value('i', 0)
+        
     
     def no_pedestrians(self):
         return self.num_ped.value == 0
@@ -46,28 +47,23 @@ class Monitor():
     
     def wants_enter_car(self, direction: int) -> None:
         self.mutex.acquire()
-        self.patata.value += 1
-        #### código
-        self.num_coches_esperando.value += 1
-        print("coches esperando: ", self.num_coches_esperando.value)
         self.nopeatones.wait_for(self.no_pedestrians)
+        #vemos la dirección en la que va y comprobamos que (aparte de que no hayan peatones, que ya ha 
+        #sido comprobado), que no hayan coches en dirección contraria en el puente.
         if direction == NORTH:
             self.nocoches_sur.wait_for(self.no_car_south)
             self.num_car_north.value += 1
         else:
             self.nocoches_norte.wait_for(self.no_car_north)
             self.num_car_south.value += 1
-        self.num_coches_esperando.value -= 1
-        print("coches esperando 2: ", self.num_coches_esperando.value)
+        self.coches_en_total.value += 1
         self.mutex.release()
 
     def leaves_car(self, direction: int) -> None:
         self.mutex.acquire() 
-        self.patata.value += 1
-        #### código
         if direction == NORTH:
             self.num_car_north.value -= 1
-            self.nocoches_norte.notify_all()#no se bien cmo funciona exactamente, preguntar.
+            self.nocoches_norte.notify_all() 
         else:
             self.num_car_south.value -= 1
             self.nocoches_sur.notify_all()
@@ -79,23 +75,19 @@ class Monitor():
     
     def wants_enter_pedestrian(self) -> None:
         self.mutex.acquire()
-        self.patata.value += 1
-        #### código
-        self.nocoches.wait_for(self.no_cars)
+        self.nocoches.wait_for(self.no_cars) #una vez nos aseguramos que no hay coches en ninguna de las direcciones, dejamos pasar a los peatones.
         self.num_ped.value += 1
+        self.peat_en_total.value += 1
         self.mutex.release()
 
     def leaves_pedestrian(self) -> None:
         self.mutex.acquire()
-        self.patata.value += 1
-        #### código
         self.num_ped.value -= 1
-        print("ya se ha ido el peaton")
         self.nopeatones.notify_all()
         self.mutex.release()
 
     def __repr__(self) -> str:
-        return f'Monitor: {self.patata.value}'
+        return f'Peatones: {self.peat_en_total.value}, Coches: {self.coches_en_total.value}'
 
 def delay_car_north() -> None:
     time.sleep(max(random.normalvariate(1, 0.5), 0))
