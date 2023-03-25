@@ -31,17 +31,13 @@ class Monitor():
         self.nocoches = Condition(self.mutex)
         self.nocoches_norte = Condition(self.mutex)
         self.nocoches_sur = Condition(self.mutex) 
-        self.max_coches = Value('i', 0) 
-        self.max_peatones = Value('i', 0)
         self.muchos_coches = Condition(self.mutex)
         self.muchos_peatones = Condition(self.mutex)
         self.coches_waiting = Value('i', 0)
         self.peat_waiting = Value('i', 0)
         self.peat_en_total = Value('i', 0)
         self.coches_en_total = Value('i', 0)
-        #aqui escribimos las variables nuevas, necesarias para resgular el paso de los coches en distinta dirección.
-        self.max_coches_norte = Value('i',0)
-        self.max_coches_sur = Value('i',0)
+
         self.muchos_cochesN = Condition(self.mutex)
         self.muchos_cochesS = Condition(self.mutex)
         self.cochesN_waiting = Value('i', 0)
@@ -64,6 +60,7 @@ class Monitor():
     
     def pocos_cochesN_esp(self):
         return self.cochesN_waiting.value < 7
+    
     def pocos_cochesS_esp(self):
         return self.cochesS_waiting.value < 7
     
@@ -115,7 +112,7 @@ class Monitor():
     def wants_enter_pedestrian(self) -> None:
         self.mutex.acquire()
         self.peat_waiting.value += 1
-        if self.pocos_peat_esp:  #comprobamos que hay pocos peatones en espera y por tanto no va a colapsa, como en el caso de los coches
+        if self.pocos_peatones_esp:  #comprobamos que hay pocos peatones en espera y por tanto no va a colapsa, como en el caso de los coches
             self.muchos_peatones.wait_for(self.pocos_coches_esp)
         self.nocoches.wait_for(self.no_cars)
         self.num_ped.value += 1
