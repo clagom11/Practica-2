@@ -2,7 +2,7 @@
 En esta práctica hay varios archivos en los que se va resolviendo, de manera gradual, lo que se nos pide en el enunciado:
 
 1. puente_basic.py: en este código lo que se ofrece es una solución sencilla al problema que se nos plantea, sin preocuparnos de evitar inanción, pero 
-garantizando la seguridad del puente (no se chocan coches en direcciones contrarias y hay peatones atropellados) y la ausencia de deadlocks.
+garantizando la seguridad del puente (no se chocan coches en direcciones contrarias ni hay peatones atropellados) y la ausencia de deadlocks.
 
 Los siguientes archivos plantearán soluciones al problema de inanición. La idea consiste, básicamente, en cortar el paso a los coches o peatones en el
 caso de que ya hayan pasado muchos de ellos seguidos. Es decir, el programa tendrá unas variables de condición que regularán el paso al puente, como
@@ -19,8 +19,10 @@ contraria. En este archivo se propone una solución para este problema, que empl
 regular los coches que van en cada dirección, siguiendo una estrategia muy parecida a la de la versión anterior entre coches y peatones, pero esta vez
 entre coches que se dirigen al norte o al sur.
 
-Por último, tenemos la parte escrita que se nos pide en el enunciado, con las demostraciones y explicaciones correspondientes:
+Por último, tenemos la parte escrita que se nos pide en el enunciado, con las demostraciones y explicaciones correspondientes, además de una versión "extra" que también tiene solucionados los problemas de inanici:
 
 4. parte escrita puente.pdf: aquí encontramos un pdf en el que hay un pseudo código con la idea básica y con aquella que soluciona los problemas de
 inanición por completo, así como demostraciones en todos los casos de que el puente es seguro y no tiene deadlocks, los invariantes que hay y la 
-demostración de que la versión "avanzada" resuelve los problemas de inanici
+demostración de que la versión "avanzada" resuelve los problemas de inanición (se explica a mano específicamente lo correspondiente con la versión 2)
+
+5. puente_version3: esta es una nueva versión que soluciona el problema del puente, sin problemas de inanición, como podría ser la versión 2, pero con una idea distinta esta vez. En este caso, lo que regulará si pueden pasar los peatones y los coches será el número de los otros que haya esperando. Es decir, el turno de uno u otro dependerá de si hay demasiados de los otros esperando. Lo mismo se hace para regular, en particular, los coches en distintas direcciones. (Como es algo extra no se incluye la explicación a mano de esta versión)
