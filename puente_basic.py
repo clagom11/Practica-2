@@ -162,5 +162,3 @@ def main():
 if __name__ == '__main__':
     main()
 
-#no veo el fallo para ver por que no termina el programa con los delays activados.
-#creo que tiene que ver con que el num del monitor a veces se queda "estancado" porque ocurren varias cosas a la vez (ej. entra un peaton justo en el momento en que otro sale y asi). Pero eso esta permitido no?
